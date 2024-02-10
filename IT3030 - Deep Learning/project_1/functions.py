@@ -7,13 +7,13 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 def tanh(x):
-    return (np.exp**x - np.exp**(-x)) / (np.exp**x + np.exp**(-x))
+    return (np.exp(x) - np.exp(-x)) / (np.exp(x) + np.exp(-x))
 
 def linear(x):
     return x
 
 def relu(x):
-    return np.max(0, x)
+    return np.maximum(0, x)
 
 act_function = {
     'sigmoid': sigmoid,
@@ -34,7 +34,7 @@ def d_linear(x):
     return np.ones(x.shape)
 
 def d_relu(x):
-    return np.where(x<0, 0, 1)
+    return np.where(x<=0, 0, 1)
 
 d_act_function = {
     'sigmoid': d_sigmoid,
@@ -46,20 +46,21 @@ d_act_function = {
 # ------------------OUPUT ACTIVATION FUNCTION------------------
 
 def softmax(x):
-    e_x = np.exp(x)
-    # e_x = np.exp(x- np.max(x, axis=-1, keepdims=True))
-    return e_x / np.sum(e_x, axis=-1, keepdims=True)
+    e_x = np.exp(x - np.max(x, axis=1, keepdims=True))
+    return e_x / np.sum(e_x, axis=1, keepdims=True)
+
+# def d_softmax(x):
+#     diag = []
+#     product = []
+#     for mini_x in x:
+#         diag.append(np.diag(mini_x))
+#         mini_x = mini_x.reshape(-1, 1)
+#         product.append(mini_x.dot(mini_x.T))
+#     diag = np.array(diag)
+#     product = np.array(product)
+#     return diag - product
 
 def d_softmax(x):
-    # diag = []
-    # product = []
-    # for mini_x in x:
-    #     diag.append(np.diag(mini_x))
-    #     mini_x = mini_x.reshape(-1, 1)
-    #     product.append(mini_x.dot(mini_x.T))
-    # diag = np.array(diag)
-    # product = np.array(product)
-    # return diag - product
     return x * ( 1 - x  )
 
 type_function = {
@@ -80,13 +81,12 @@ def cross_entropy(y, y_pred):
 def d_cross_entropy(y, y_pred):
     eps = 1e-15
     return - 1 * (y / (y_pred + eps))
-    # return - 1 / y.shape[0] * (y / (y_pred + eps))
 
 def mse(y, y_pred):
-    return 1 / y.shape[0] * np.sum((y - y_pred).T.dot((y - y_pred))) # (y - y_pred).dot(y - y_pred) 
+    return 1 / y.shape[0] * np.sum((y - y_pred)**2)
 
 def d_mse(y, y_pred):
-    return (y - y_pred) / y.shape[0]
+    return (y - y_pred)
 
 loss = {
     'cross_entropy': cross_entropy,

@@ -28,14 +28,14 @@ class OutputActFunction(Enum):
 class HiddenLayerConfig:
     size: int = 100
     act: str = 'relu'
-    wr: tuple | str
+    wr: tuple # | str
     lrate: float = 0.01
 
 class InputLayerConfig:
     input: int = 20
 
 class OutputLayerConfig:
-    type: OutputActFunction = 'relu'
+    type: OutputActFunction = 'softmax'
 
 
 class GlobalConfig:

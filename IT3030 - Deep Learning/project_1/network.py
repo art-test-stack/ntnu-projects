@@ -27,11 +27,10 @@ def print_epoch_scores(epoch, loss, val_loss=None):
 
 
 class Network:
-
     def __init__(self,
         global_config: GlobalConfig,
         layers_config: LayersConfig,
-        show_config: bool = True) -> None:
+        show_config: bool = False) -> None:
         
         for k, v in global_config.__dict__.items():
             setattr(self, k, v)
@@ -45,6 +44,9 @@ class Network:
             
         self.global_config = global_config
         self.layers_config = layers_config
+
+        self.init_weights()
+
         if show_config: 
             self.print_config()
 
@@ -60,18 +62,17 @@ class Network:
         dL = d_loss[self.loss](y_train, y_pred)
         dy = d_softmax(y_pred)
 
-        # J = dL * dy
+        J = dL * dy
         # J = np.einsum('ij,ijk->ij', dL, dy)
-        J = dL
+        # J = dL
 
         for layer in reversed(self.layers):
             J = layer.backward_pass(J)
     
     def init_weights(self): 
         input_size = self.input ** 2
-        for layer in self.layers: 
-            min_w, max_w = - 1 / np.sqrt(input_size + layer.size),  1 / np.sqrt(input_size + layer.size)
-            layer.init_weights(input_size, (-min_w, max_w))
+        for layer in self.layers:
+            layer.init_weights(input_size)
             input_size = layer.size
 
     def update_weights(self):
@@ -84,9 +85,9 @@ class Network:
         X_test = [], y_test =[], 
         epoch: int = 100, size_minibatch: float = .8):
         
-        X_train = X_train.reshape(-1, self.input ** 2)
+        X_train = X_train.reshape(-1, self.input ** 2) if len(X_train.shape)==3 else X_train
 
-        losses = []
+        loss_train = []
         loss_val = []
         loss_test = []
 
@@ -100,10 +101,7 @@ class Network:
         if not ((len(X_test) == 0) or (len(y_test) == 0)):
             X_test = X_test.reshape(-1, self.input ** 2)
             test = True
-
-        if "W" not in self.layers[0].__dict__.keys():
-            self.init_weights()
-
+            
         for ep in range(epoch):
             if val:
                 ypred_val = self.forward_pass(X_val)
@@ -111,31 +109,31 @@ class Network:
                 loss_val.append(loss_val_ep)
 
             y_pred = self.forward_pass(X_train)
-            loss_ep = loss[self.loss](y_train, y_pred)
+            loss_train_ep = loss[self.loss](y_train, y_pred)
 
             self.backward_pass(y_train, y_pred)
             self.update_weights()
 
-            print_epoch_scores(ep+1, loss_ep, loss_val_ep) if val else print_epoch_scores(ep+1, loss_ep)
-            losses.append(loss_ep)
-
+            print_epoch_scores(ep+1, loss_train_ep, loss_val_ep) if val else print_epoch_scores(ep+1, loss_train_ep)
+            loss_train.append(loss_train_ep)
 
         if test:
             ypred_test = self.forward_pass(X_test)
             loss_test.append(loss['cross_entropy'](y_test, ypred_test))
         
-
-        plt.plot(range(1, epoch + 1), losses, c='b', label='train loss')
+        self.loss_train = np.array(loss_train)
+        self.loss_val = np.array(loss_val)
+        self.loss_test = np.array(loss_test)
+        plt.plot(range(1, epoch + 1), loss_train, c='b', label='train loss')
         if val: plt.plot(range(1, epoch + 1), loss_val, c='r', label='val loss')
         plt.legend()
         plt.show()
 
     def predict(self, X):
-        X = X.reshape(-1, self.input ** 2)
+        X = X.reshape(-1, self.input ** 2) if len(X.shape)==3 else X
         return self.forward_pass(X)
 
-    def print_config(self):
-        width = 40
+    def summary(self, width = 40):
         print_empty_tab_line(width)
         print_tab_line('GLOBAL', width=width)
         print_empty_tab_line(width)
@@ -151,6 +149,7 @@ class Network:
         for layer in self.layers_config.hidden_layers:
             print_tab_line(f"layer {k}", width=width)
             k += 1
+            # print_tab_line('', f"Nb params: {layer.W.shape[0]*layer.W.shape[1]}", width=width)
             for key, v in layer.items():
                 print_tab_line('', f"{key}: {str(v)}", width=width)
         print_tab_line('type', str(self.layers_config.type), width=width)
