@@ -1,18 +1,18 @@
 GLOBAL:
   loss: cross_entropy
-  lrate: 0.1
-  wreg: 0.001
+  lrate: 1
+  wreg: 0.1
   wrt: L2
 
 LAYERS: 
   input: 20
   hidden_layers:
-    - size: 100
-      act: relu
-      wr: (-0.1 0.1)
-      lrate: 0.01
+    - size: 20
+      act: sigmoid
+      # wr: (-0.1 0.1)
+      lrate: 1
     - size: 5
-      act: relu
-      wr: glorot
+      act: sigmoid
+      # wr: glorot
       br: (0 1)
   type: softmax

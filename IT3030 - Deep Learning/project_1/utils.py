@@ -8,22 +8,22 @@ from enum import Enum
 
 
 class Loss(Enum):
-    cross_entropy: 'cross_entropy'
-    mse: 'mse'
+    cross_entropy: str = 'cross_entropy'
+    mse: str = 'mse'
 
 class Regularizator(Enum):
-    L1: 'L1'
-    L2: 'L2'
-    none: None
+    L1: str = 'L1'
+    L2: str = 'L2'
+    none = None
 
 class ActivationFunction(Enum):
-    sigmoid: 'sigmoid'
-    tanh: 'tanh'
-    relu: 'relu'
-    linear: 'linear'
+    sigmoid: str = 'sigmoid'
+    tanh: str = 'tanh'
+    relu: str = 'relu'
+    linear: str = 'linear'
     
 class OutputActFunction(Enum):
-    softmax: 'softmax'
+    softmax: str = 'softmax'
 
 class HiddenLayerConfig:
     size: int = 100
