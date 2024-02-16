@@ -49,19 +49,19 @@ def softmax(x):
     e_x = np.exp(x - np.max(x, axis=1, keepdims=True))
     return e_x / np.sum(e_x, axis=1, keepdims=True)
 
-# def d_softmax(x):
-#     diag = []
-#     product = []
-#     for mini_x in x:
-#         diag.append(np.diag(mini_x))
-#         mini_x = mini_x.reshape(-1, 1)
-#         product.append(mini_x.dot(mini_x.T))
-#     diag = np.array(diag)
-#     product = np.array(product)
-#     return diag - product
-
 def d_softmax(x):
-    return x * ( 1 - x  )
+    diag = []
+    product = []
+    for mini_x in x:
+        diag.append(np.diag(mini_x))
+        mini_x = mini_x.reshape(-1, 1)
+        product.append(mini_x.dot(mini_x.T))
+    diag = np.array(diag)
+    product = np.array(product)
+    return diag - product
+
+# def d_softmax(x):
+#     return x * ( 1 - x  )
 
 type_function = {
     'softmax': softmax
@@ -80,7 +80,10 @@ def cross_entropy(y, y_pred):
 
 def d_cross_entropy(y, y_pred):
     eps = 1e-15
-    return - 1 * (y / (y_pred + eps))
+    return np.sum(y) / np.sum(y_pred) - 1 * (y / (y_pred + eps))
+
+def d_ce_s(y, y_pred):
+    return - (y - np.sum(y, axis=1, keepdims=True) * y_pred)
 
 def mse(y, y_pred):
     return 1 / y.shape[0] * np.sum((y - y_pred)**2)

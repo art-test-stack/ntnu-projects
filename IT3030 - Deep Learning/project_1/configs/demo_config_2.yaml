@@ -1,0 +1,16 @@
+GLOBAL:
+  loss: cross_entropy
+  lrate: .1
+
+LAYERS: 
+  input: 30
+  hidden_layers:
+    - size: 9
+      act: relu
+      wr: glorot
+      br: (0 1)
+  type: softmax
+
+DATASET: 
+  load: True
+  name: 'dataset_2024-02-13_1500_9_30'

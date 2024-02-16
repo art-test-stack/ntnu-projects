@@ -1,11 +1,9 @@
 import numpy as np
-from utils import GlobalConfig, LayersConfig, read_config, adapt_config
-from tqdm import tqdm
+from utils import GlobalConfig, LayersConfig, read_config, open_config
 
 from layer import Layer
 from matplotlib import pyplot as plt
 from functions import * 
-
 
 
 def has_nan(np_tab, name, ep=''):
@@ -25,6 +23,13 @@ def print_epoch_scores(epoch, loss, val_loss=None):
 
     print(f"Epoch: {epoch},{' '*(5 - len(epoch))} loss: {loss},{' '*(18 - len(loss))}{val_loss_print}")
 
+def wr_function(wrt, w):
+    if wrt == 'L1':
+        return np.abs(w)
+    if wrt == 'L2':
+        return w ** 2
+    else:
+        return 0
 
 class Network:
     def __init__(self,
@@ -40,10 +45,12 @@ class Network:
 
         self.layers = []
         for c_layer in layers_config.hidden_layers:
-            self.layers.append(Layer(c_layer, self.lrate))
+            self.layers.append(Layer(c_layer, self.lrate, self.wrt, self.wreg))
             
         self.global_config = global_config
         self.layers_config = layers_config
+
+        self.grad_custom = False
 
         self.init_weights()
 
@@ -60,11 +67,12 @@ class Network:
     
     def backward_pass(self, y_train, y_pred):
         dL = d_loss[self.loss](y_train, y_pred)
-        dy = d_softmax(y_pred)
+        dy = d_softmax(y_pred) if self.type == 'softmax' else 1
 
-        J = dL * dy
-        # J = np.einsum('ij,ijk->ij', dL, dy)
-        # J = dL
+        J = np.einsum('ik,ikj->ij', dL, dy) if self.type == 'softmax' else dL
+
+        J = d_ce_s(y_train, y_pred) if self.grad_custom else J
+        # if self.type == 'softmax' and self.loss == 'cross_entropy' else J
 
         for layer in reversed(self.layers):
             J = layer.backward_pass(J)
@@ -79,17 +87,39 @@ class Network:
         for layer in self.layers:
             layer.update_weights()
 
+    def regularization(self):
+        penalty = 0
+        for layer in self.layers:
+            penalty += np.sum(wr_function(self.wrt, layer.W))
+        return self.wreg * penalty
+
+    def minibatch(self, X_train, y_train, size_minibatch):
+        index = []
+
+        if size_minibatch >= 1:
+            return X_train, y_train
+        
+        while len(index) < len(X_train) * size_minibatch:
+            idx = np.random.randint(0, len(X_train))
+            if idx not in index: index.append(idx)
+        index.sort()
+        return X_train[index], y_train[index]
+
+
     def fit(self, 
         X_train, y_train, 
         X_val = [], y_val = [],
         X_test = [], y_test =[], 
-        epoch: int = 100, size_minibatch: float = .8):
+        epoch: int = 100, size_minibatch: float = 1,
+        verbose = False):
         
         X_train = X_train.reshape(-1, self.input ** 2) if len(X_train.shape)==3 else X_train
 
         loss_train = []
         loss_val = []
-        loss_test = []
+
+        acc_train = []
+        acc_val = []
 
         val = False
         test = False
@@ -103,32 +133,53 @@ class Network:
             test = True
             
         for ep in range(epoch):
+
+            X_batch, y_batch = self.minibatch(X_train, y_train, size_minibatch) if size_minibatch < 1 else (X_train, y_train)
+
             if val:
                 ypred_val = self.forward_pass(X_val)
-                loss_val_ep = loss[self.loss](y_val, ypred_val)
+                loss_val_ep = loss[self.loss](y_val, ypred_val) + self.regularization()
                 loss_val.append(loss_val_ep)
+                acc_val.append(np.mean(np.argmax(y_val, axis=1) == np.argmax(ypred_val, axis=1)))
 
-            y_pred = self.forward_pass(X_train)
-            loss_train_ep = loss[self.loss](y_train, y_pred)
+            y_pred = self.forward_pass(X_batch)
+            loss_train_ep = loss[self.loss](y_batch, y_pred) + self.regularization()
 
-            self.backward_pass(y_train, y_pred)
+            if verbose:
+                index_to_show = np.random.randint(0, len(X_batch) - 1)
+                print("Index plotted:", index_to_show)
+                print("Network inputs:", X_batch[index_to_show])
+                print("Network outputs:", y_pred[index_to_show])
+                print("Target values:", y_batch[index_to_show])
+                print(f"Loss ({self.loss}) of the random element:", loss[self.loss](y_batch[index_to_show], y_pred[index_to_show]) + self.regularization())
+                print(f"Loss ({self.loss}) of the batch:", loss_train_ep)
+
+            self.backward_pass(y_batch, y_pred)
             self.update_weights()
 
             print_epoch_scores(ep+1, loss_train_ep, loss_val_ep) if val else print_epoch_scores(ep+1, loss_train_ep)
             loss_train.append(loss_train_ep)
+            acc_train.append(np.mean(np.argmax(y_batch, axis=1) == np.argmax(y_pred, axis=1)))
 
-        if test:
-            ypred_test = self.forward_pass(X_test)
-            loss_test.append(loss['cross_entropy'](y_test, ypred_test))
-        
-        self.loss_train = np.array(loss_train)
-        self.loss_val = np.array(loss_val)
-        self.loss_test = np.array(loss_test)
+        plt_title = "Train and val loss by epoch" if val else "Train loss by epoch"
         plt.plot(range(1, epoch + 1), loss_train, c='b', label='train loss')
         if val: plt.plot(range(1, epoch + 1), loss_val, c='r', label='val loss')
+        plt.title(plt_title)
         plt.legend()
         plt.show()
 
+        plt_title = "Train and val accuracy by epoch" if val else "Train accuracy by epoch"
+        plt.plot(range(1, epoch + 1), acc_train, c='b', label='train acc')
+        if val: plt.plot(range(1, epoch + 1), acc_val, c='r', label='val acc')
+        plt.title(plt_title)
+        plt.legend()
+        plt.show()
+
+        if test:
+            ypred_test = self.forward_pass(X_test)
+            print('Test loss:', loss[self.loss](y_test, ypred_test) + self.regularization())
+
+        
     def predict(self, X):
         X = X.reshape(-1, self.input ** 2) if len(X.shape)==3 else X
         return self.forward_pass(X)

@@ -1,0 +1,38 @@
+GLOBAL:
+  loss: cross_entropy
+  lrate: .01
+  wreg: 0.0001
+  # wrt: L2
+
+LAYERS: 
+  input: 50
+  hidden_layers:
+    - size: 100
+      act: sigmoid
+      wr: glorot
+      # lrate: 0.02
+    - size: 70
+      act: relu
+      wr: glorot
+      # lrate: 0.01
+    - size: 120
+      act: sigmoid
+      wr: glorot
+      lrate: 0.02
+    - size: 70
+      act: relu
+      wr: glorot
+      # lrate: 0.01
+    - size: 40
+      act: sigmoid
+      wr: glorot
+      # lrate: 0.01
+    - size: 9
+      act: sigmoid
+      wr: glorot
+      br: (0 1)
+  type: softmax
+
+DATASET: 
+  load: True
+  name: 'dataset_2024-02-13_750_9_50'
