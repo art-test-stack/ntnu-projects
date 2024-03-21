@@ -1,22 +1,21 @@
 import pandas as pd
 import numpy as np
-import torch
-from torch.nn.utils.rnn import pad_sequence
 
-from sklearn.preprocessing import StandardScaler
-
-from copy import copy
-
-def add_month_columns(df_input, params: dict = {}, l: list[str] = []):
+def add_month_columns(
+        df_input: pd.DataFrame, 
+        params: dict = {}, 
+        l: list[str] = []
+    ) -> tuple[pd.DataFrame, list]:
     """
     Add a boolean column for each months if
     the measure have been done during this month
     """
-    dates_data = pd.concat([df_input, pd.get_dummies(df_input['timestamp'].dt.month, prefix='month')], axis=1)
+    df = df_input.copy()
+    dates_data = pd.concat([df, pd.get_dummies(df['timestamp'].dt.month, prefix='month')], axis=1)
     month_names = {1: 'january', 2: 'february', 3: 'march', 4: 'april', 5: 'may', 6: 'june',
                 7: 'july', 8: 'august', 9: 'september', 10: 'october', 11: 'november', 12: 'december'}
     df_out = dates_data.rename(columns={f'month_{month_num}': month_names[month_num] for month_num in range(1, 13)})
-    return df_out, l # .replace(0, pd.NA)
+    return df_out, l 
 
 def get_season(date):
     """
@@ -31,31 +30,50 @@ def get_season(date):
     else:
         return 'winter'
     
-def add_season_columns(df_input, params: dict = {}, l: list[str] = []):
+def add_season_columns(
+        df_input: pd.DataFrame, 
+        params: dict = {}, 
+        l: list[str] = []
+    ) -> tuple[pd.DataFrame, list]:
     """
     Add a boolean column for each season if the 
     measure have been done during this season
     """
-    df_input['season'] = df_input['timestamp'].apply(get_season)
-    df = pd.concat([df_input, pd.get_dummies(df_input['season'], prefix='season')], axis=1)
+    df = df_input.copy()
+    df['season'] = df['timestamp'].apply(get_season)
+    df = pd.concat([df, pd.get_dummies(df['season'], prefix='season')], axis=1)
     return df.drop(columns=['season']), l
     
-def add_hour_columns(df_input, params: dict = {}, l: list[str] = []):
+def add_hour_columns(
+        df_input: pd.DataFrame, 
+        params: dict = {}, 
+        l: list[str] = []
+    ) -> tuple[pd.DataFrame, list]:
     """
     Add a boolean column for each hour if the measure
     have been done during this hour
     """
-    return pd.concat([df_input, pd.get_dummies(df_input['timestamp'].dt.hour, prefix='hour')], axis=1), l
+    df = df_input.copy()
+    return pd.concat([df, pd.get_dummies(df['timestamp'].dt.hour, prefix='hour')], axis=1), l
 
-def change_timestamp_to_sin(df: pd.DataFrame, params: dict = {}, l: list[str] = []) -> tuple[pd.DataFrame, list]:
+def change_timestamp_to_sin(
+        df: pd.DataFrame, 
+        params: dict = {}, 
+        l: list[str] = []
+    ) -> tuple[pd.DataFrame, list]:
     """
     Add a float column for each timestamp which correspond 
     to the value of sin(date in input) with a yearly period
     """
+    df = df.copy()
     df['timestamp_sin'] = np.sin((pd.to_datetime(df['timestamp']).astype(int) // (3600 * 10 ** 9) - 414888) / ( 365 * 24 ))
     return df, l
 
-def pick_location_data(df: pd.DataFrame, params: dict = {}, l: list[str] = []) -> tuple[pd.DataFrame, list]:
+def pick_location_data(
+        df: pd.DataFrame, 
+        params: dict = {}, 
+        l: list[str] = []
+    ) -> tuple[pd.DataFrame, list]:
     df = df.copy()
     loc = params['loc']
 
@@ -70,7 +88,11 @@ def pick_location_data(df: pd.DataFrame, params: dict = {}, l: list[str] = []) -
         
     return df.drop(columns=columns_to_drop), l
 
-def shift_data(df: pd.DataFrame, params: dict = {}, l: list = []) -> tuple[pd.DataFrame, list]:
+def shift_data(
+        df: pd.DataFrame, 
+        params: dict = {}, 
+        l: list = []
+    ) -> tuple[pd.DataFrame, list]:
     """
     params: { 
         'shift_min': int, 
@@ -90,7 +112,12 @@ def shift_data(df: pd.DataFrame, params: dict = {}, l: list = []) -> tuple[pd.Da
         l.append(f"{new_column_name}_{k}_previous")
     return df, l
 
-def get_yesterday_target_mean(df: pd.DataFrame, params: dict = {'target': 'NO1_consumption '}, l: list = []) -> tuple[pd.DataFrame, list]:
+
+def get_yesterday_target_mean(
+        df: pd.DataFrame, 
+        params: dict = {'target': 'NO1_consumption '}, 
+        l: list = []
+    ) -> tuple[pd.DataFrame, list]:
     df = df.copy()
     
     target = params['target']
@@ -99,9 +126,29 @@ def get_yesterday_target_mean(df: pd.DataFrame, params: dict = {'target': 'NO1_c
 
     df[f"{target}_yesterday_mean"] = df_temporary[columns_].mean(axis=1)
     l.append(f"{target}_yesterday_mean")
+    return df, l
 
-    # print(df_temporary[columns_].mean(axis=1))
-    # print(df_temporary[columns_].mean())
 
-    print(df[f"{target}_yesterday_mean"])
+def previous_y(
+        df: pd.DataFrame, 
+        params: dict = {'target': 'NO1_consumption'}, 
+        l: list = []
+    ) -> tuple[pd.DataFrame, list]:
+    df = df.copy()
+    target = params['target']
+
+    params = {
+        'column_to_shift': target,
+        'shift_max': 1
+    }
+    df, _ = shift_data(df, params, l.copy())
+
+    columns = list(df.columns)
+
+    columns.pop()
+    column = f"{target}_1_previous"
+
+    l.insert(0, column)
+    columns.insert(0, column)
+    df = df[columns]
     return df, l
