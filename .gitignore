@@ -1,9 +1,11 @@
-TDT4136/assignment4
+# Fall\ 2023/TDT4136\ -\ Introduction\ to\ AI/assignment4
+Fall 2023/TDT4136 - Introduction to AI/assignment4
 .DS_Store
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+archives
 
 # C extensions
 *.so
